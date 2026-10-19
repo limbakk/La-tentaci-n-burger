@@ -15,12 +15,12 @@ export const HomeContactAndHours: React.FC<HomeContactAndHoursProps> = () => {
   )}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
 
   return (
-    <section id="contacto-horarios" className="py-10 sm:py-14 bg-transparent relative">
+    <section id="contacto-horarios" className="py-4 sm:py-6 bg-transparent relative">
       <div
         ref={ref}
         className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 ${entranceClassName}`}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
           {/* =================================================================== */}
           {/* CARD 1: MAIN CONTACT AND LOCATION CARD (WITH INTERACTIVE MAP)      */}
           {/* Mobile: below opening hours (order-2); Desktop: left (lg:order-1)  */}

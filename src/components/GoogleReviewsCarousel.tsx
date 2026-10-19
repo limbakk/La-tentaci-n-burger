@@ -38,7 +38,7 @@ export const GoogleReviewsCarousel: React.FC = () => {
   };
 
   return (
-    <section id="resenas-google" className="py-12 sm:py-16 bg-transparent relative">
+    <section id="resenas-google" className="pt-4 pb-8 sm:pt-6 sm:pb-10 bg-transparent relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* =================================================================== */}
         {/* CASE 1: GENUINE LIVE REVIEWS CONNECTED (SWIPEABLE CAROUSEL)         */}

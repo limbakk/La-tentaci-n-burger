@@ -15,10 +15,14 @@ import { RESTAURANT_INFO } from '../data/restaurantInfo';
 import {
   type ChallengeAttemptState,
   createInitialAttemptState,
+  refreshChallengeCycle,
+  isCooldownActive,
+  getRemainingCooldownMs,
+  formatCooldownRemaining,
   getRemainingAttempts,
   canStartAttempt,
   consumeAttempt,
-  grantInstagramExtraAttempt,
+  requestSocialExtraAttempt,
   evaluateStopwatchStop,
   formatStopwatchDisplay,
 } from '../utils/stopwatchChallenge';
@@ -65,7 +69,7 @@ function loadLocalAttemptState(token: string): ChallengeAttemptState {
     if (raw) {
       const parsed = JSON.parse(raw) as ChallengeAttemptState;
       if (parsed && typeof parsed === 'object' && typeof parsed.initialAttemptUsed === 'boolean') {
-        return { ...parsed, deviceToken: token };
+        return refreshChallengeCycle({ ...parsed, deviceToken: token });
       }
     }
   } catch {
@@ -107,7 +111,10 @@ export const PromotionsSection: React.FC = () => {
   const [socialPlatform, setSocialPlatform] = useState<'instagram' | 'tiktok' | null>(null);
   const [igHandleInput, setIgHandleInput] = useState('');
   const [igConfirmShared, setIgConfirmShared] = useState(false);
-  const [igFeedback, setIgFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [igFeedback, setIgFeedback] = useState<{
+    type: 'error' | 'success' | 'pending';
+    message: string;
+  } | null>(null);
   const [isSubmittingIg, setIsSubmittingIg] = useState(false);
   const [resetAfterUsedNotice, setResetAfterUsedNotice] = useState(false);
 
@@ -166,13 +173,22 @@ export const PromotionsSection: React.FC = () => {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!isMounted || !data?.state) return;
-        const serverState = data.state as ChallengeAttemptState;
-        const merged: ChallengeAttemptState = {
+        const serverState = refreshChallengeCycle(data.state as ChallengeAttemptState);
+        const merged = refreshChallengeCycle({
           ...serverState,
           initialAttemptUsed: serverState.initialAttemptUsed || localState.initialAttemptUsed,
           instagramExtraGranted: serverState.instagramExtraGranted || localState.instagramExtraGranted,
           instagramExtraUsed: serverState.instagramExtraUsed || localState.instagramExtraUsed,
           instagramHandle: serverState.instagramHandle || localState.instagramHandle,
+          socialPlatform: serverState.socialPlatform || localState.socialPlatform,
+          socialPostUrl: serverState.socialPostUrl || localState.socialPostUrl,
+          socialVerificationStatus:
+            serverState.socialVerificationStatus === 'approved' || localState.socialVerificationStatus === 'approved'
+              ? 'approved'
+              : serverState.socialVerificationStatus === 'pending_review' || localState.socialVerificationStatus === 'pending_review'
+                ? 'pending_review'
+                : 'none',
+          cooldownUntil: serverState.cooldownUntil || localState.cooldownUntil,
           staffExtraGrantedCount: Math.max(
             serverState.staffExtraGrantedCount,
             localState.staffExtraGrantedCount
@@ -181,7 +197,7 @@ export const PromotionsSection: React.FC = () => {
             serverState.staffExtraUsedCount,
             localState.staffExtraUsedCount
           ),
-        };
+        });
         setAttemptState(merged);
         saveLocalAttemptState(merged);
 
@@ -321,17 +337,27 @@ export const PromotionsSection: React.FC = () => {
           message: data.error || 'No se pudo registrar el intento extra.',
         });
       } else if (data.state) {
-        setAttemptState(data.state);
-        saveLocalAttemptState(data.state);
+        const nextState = refreshChallengeCycle(data.state as ChallengeAttemptState);
+        setAttemptState(nextState);
+        saveLocalAttemptState(nextState);
         setResetAfterUsedNotice(false);
         const platformLabel = activePlatform === 'tiktok' ? 'TikTok' : 'Instagram';
-        setIgFeedback({
-          type: 'success',
-          message: `Intento extra habilitado mediante verificación en ${platformLabel} para ${data.state.instagramHandle} (máximo 1 intento adicional por participante).`,
-        });
+        if (nextState.instagramExtraGranted || data.verificationStatus === 'approved') {
+          setIgFeedback({
+            type: 'success',
+            message: `Intento extra habilitado tras verificación en ${platformLabel} para ${nextState.instagramHandle} (máximo 1 intento adicional por ciclo de 7 días).`,
+          });
+        } else {
+          setIgFeedback({
+            type: 'pending',
+            message: `Solicitud registrada en ${platformLabel} para ${nextState.instagramHandle}: pendiente de revisión manual por el restaurante antes de habilitar el intento adicional.`,
+          });
+        }
       }
     } catch {
-      const fallback = grantInstagramExtraAttempt(attemptState, igHandleInput, activePlatform);
+      const fallback = requestSocialExtraAttempt(attemptState, igHandleInput, activePlatform, {
+        autoVerified: false,
+      });
       if (!fallback.ok) {
         setIgFeedback({
           type: 'error',
@@ -343,8 +369,8 @@ export const PromotionsSection: React.FC = () => {
         setResetAfterUsedNotice(false);
         const platformLabel = activePlatform === 'tiktok' ? 'TikTok' : 'Instagram';
         setIgFeedback({
-          type: 'success',
-          message: `Intento extra habilitado mediante verificación en ${platformLabel} para ${fallback.state.instagramHandle}.`,
+          type: 'pending',
+          message: `Solicitud registrada en ${platformLabel} para ${fallback.state.instagramHandle}: pendiente de revisión manual por el restaurante antes de habilitar el intento adicional.`,
         });
       }
     } finally {
@@ -378,8 +404,9 @@ export const PromotionsSection: React.FC = () => {
           message: data.error || 'Código de autorización de personal no válido.',
         });
       } else if (data.state) {
-        setAttemptState(data.state);
-        saveLocalAttemptState(data.state);
+        const nextState = refreshChallengeCycle(data.state as ChallengeAttemptState);
+        setAttemptState(nextState);
+        saveLocalAttemptState(nextState);
         setStaffCodeInput('');
         setStaffFeedback({
           type: 'success',
@@ -399,6 +426,11 @@ export const PromotionsSection: React.FC = () => {
       setIsSubmittingStaff(false);
     }
   };
+
+  const inCooldown = isCooldownActive(attemptState);
+  const cooldownText = inCooldown ? formatCooldownRemaining(getRemainingCooldownMs(attemptState)) : '';
+  const isPendingSocialReview =
+    attemptState.socialVerificationStatus === 'pending_review' && !attemptState.instagramExtraGranted;
 
   return (
     <section id="promociones" className="pt-2 pb-10 sm:pt-4 sm:pb-14 bg-transparent relative">
@@ -472,15 +504,40 @@ export const PromotionsSection: React.FC = () => {
 
           {/* Lockout Notice when no attempts remain */}
           {!isRunning && !canPlay && (
-            <div className="w-full p-3.5 rounded-xl bg-zinc-900/80 border border-white/10 text-[11px] text-zinc-300 mb-4 text-left leading-relaxed">
-              <span className="font-bold text-red-400 block mb-0.5">
-                Has agotado tu intento disponible.
-              </span>
-              <span>
-                {resetAfterUsedNotice
-                  ? '¿Quieres otro intento? Consíguelo compartiendo en Instagram o en TikTok (ver sección desplegada más abajo).'
-                  : 'Pulsa REINICIAR o haz clic en la tarjeta inferior para ver cómo conseguir un intento adicional en Instagram o TikTok.'}
-              </span>
+            <div
+              data-testid="challenge-lockout-notice"
+              className="w-full p-3.5 rounded-xl bg-zinc-900/80 border border-white/10 text-[11px] text-zinc-300 mb-4 text-left leading-relaxed"
+            >
+              {inCooldown ? (
+                <>
+                  <span className="font-bold text-amber-400 block mb-0.5">
+                    Ciclo completado · Próximo intento en {cooldownText}
+                  </span>
+                  <span>
+                    Has utilizado tus 2 oportunidades de esta semana (intento gratuito + intento extra). Transcurridos 7 días se restaurará automáticamente 1 intento gratuito y la solicitud de intento extra.
+                  </span>
+                </>
+              ) : isPendingSocialReview ? (
+                <>
+                  <span className="font-bold text-amber-400 block mb-0.5">
+                    Solicitud pendiente de revisión manual ({attemptState.instagramHandle})
+                  </span>
+                  <span>
+                    Tu solicitud en {attemptState.socialPlatform === 'tiktok' ? 'TikTok' : 'Instagram'} ha quedado registrada. El intento adicional se habilitará tras la verificación manual de la publicación por el restaurante.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="font-bold text-red-400 block mb-0.5">
+                    Has agotado tu intento disponible.
+                  </span>
+                  <span>
+                    {resetAfterUsedNotice
+                      ? '¿Quieres otro intento? Consíguelo compartiendo en Instagram o en TikTok (ver sección desplegada más abajo).'
+                      : 'Pulsa REINICIAR o haz clic en la tarjeta inferior para ver cómo conseguir un intento adicional en Instagram o TikTok.'}
+                  </span>
+                </>
+              )}
             </div>
           )}
 
@@ -587,7 +644,7 @@ export const PromotionsSection: React.FC = () => {
                 ))}
                 <div className="flex items-start gap-2.5 text-xs text-zinc-300">
                   <Check className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                  <span>Un intento inicial por participante y máximo un intento adicional mediante redes sociales.</span>
+                  <span>Un intento inicial gratuito y máximo un intento adicional cada 7 días mediante Instagram o TikTok.</span>
                 </div>
               </div>
 
@@ -600,7 +657,35 @@ export const PromotionsSection: React.FC = () => {
                   </strong>
                 </div>
 
-                {!attemptState.instagramExtraGranted ? (
+                {inCooldown ? (
+                  <div
+                    data-testid="social-status-cooldown"
+                    className="p-3 rounded-lg bg-zinc-900/80 border border-amber-700/40 text-[11px] text-zinc-200 leading-relaxed"
+                  >
+                    Has agotado el intento gratuito y el intento extra de este ciclo. El sistema se reiniciará automáticamente en <strong>{cooldownText}</strong> (ciclo de 7 días), restaurando 1 intento gratuito y 1 nueva solicitud en redes sociales.
+                  </div>
+                ) : attemptState.instagramExtraGranted ? (
+                  <div
+                    data-testid="social-status-approved"
+                    className="p-2.5 rounded-lg bg-zinc-900/80 border border-white/15 text-[11px] text-zinc-200"
+                  >
+                    ✓ Intento extra verificado mediante{' '}
+                    {attemptState.socialPlatform === 'tiktok'
+                      ? 'TikTok'
+                      : 'Instagram'}{' '}
+                    para <strong>{attemptState.instagramHandle}</strong>{' '}
+                    ({attemptState.instagramExtraUsed ? 'ya utilizado en este ciclo' : 'disponible para jugar'}).
+                  </div>
+                ) : isPendingSocialReview ? (
+                  <div
+                    data-testid="social-status-pending"
+                    className="p-3 rounded-lg bg-amber-950/30 border border-amber-700/50 text-[11px] text-amber-200 leading-relaxed"
+                  >
+                    ⏳ <strong>Pendiente de revisión manual:</strong> Solicitud registrada para{' '}
+                    <strong>{attemptState.instagramHandle}</strong> en{' '}
+                    {attemptState.socialPlatform === 'tiktok' ? 'TikTok' : 'Instagram'}. El intento adicional se activará una vez verificada la publicación (máximo 1 solicitud cada 7 días entre ambas plataformas).
+                  </div>
+                ) : (
                   <div className="space-y-3">
                     {/* Collapsed view: ONLY the two clear options */}
                     <div className="flex flex-wrap items-center gap-2">
@@ -657,7 +742,7 @@ export const PromotionsSection: React.FC = () => {
                               >
                                 {RESTAURANT_INFO.social.instagram.handle}
                               </a>{' '}
-                              para activar tu intento adicional (máximo 1 intento extra por participante entre ambas plataformas).
+                              para activar tu intento adicional (máximo 1 intento extra cada 7 días entre ambas plataformas).
                             </p>
                           ) : (
                             <p>
@@ -670,11 +755,11 @@ export const PromotionsSection: React.FC = () => {
                               >
                                 {RESTAURANT_INFO.social.tiktok.handle}
                               </a>{' '}
-                              para activar tu intento adicional (máximo 1 intento extra por participante entre ambas plataformas).
+                              para activar tu intento adicional (máximo 1 intento extra cada 7 días entre ambas plataformas).
                             </p>
                           )}
                           <p className="text-[11px] text-zinc-400">
-                            Tras publicar y etiquetar la cuenta oficial, introduce tu @usuario para registrar y verificar la publicación en el sistema del restaurante.
+                            Tras publicar y etiquetar la cuenta oficial, introduce tu @usuario o el enlace a tu perfil/publicación para su verificación.
                           </p>
                         </div>
 
@@ -705,8 +790,8 @@ export const PromotionsSection: React.FC = () => {
                             onChange={(e) => setIgHandleInput(e.target.value)}
                             placeholder={
                               socialPlatform === 'tiktok'
-                                ? 'Tu @usuario de TikTok'
-                                : 'Tu @usuario de Instagram'
+                                ? 'Tu @usuario o URL de TikTok'
+                                : 'Tu @usuario o URL de Instagram'
                             }
                             aria-label="Tu usuario de red social"
                             className="flex-1 px-3 py-2 bg-[#0d0d14] border border-white/15 rounded-lg text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
@@ -716,7 +801,7 @@ export const PromotionsSection: React.FC = () => {
                             disabled={isSubmittingIg}
                             className="embossed-btn-red px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white cursor-pointer shrink-0"
                           >
-                            {isSubmittingIg ? 'Activando...' : 'Solicitar intento extra'}
+                            {isSubmittingIg ? 'Verificando...' : 'Solicitar intento extra'}
                           </button>
                         </div>
 
@@ -736,15 +821,6 @@ export const PromotionsSection: React.FC = () => {
                       </form>
                     )}
                   </div>
-                ) : (
-                  <div className="p-2.5 rounded-lg bg-zinc-900/80 border border-white/15 text-[11px] text-zinc-200">
-                    ✓ Intento extra registrado mediante{' '}
-                    {attemptState.socialPlatform === 'tiktok'
-                      ? 'Verificación mediante TikTok'
-                      : 'Verificación mediante Instagram'}{' '}
-                    para <strong>{attemptState.instagramHandle}</strong>{' '}
-                    ({attemptState.instagramExtraUsed ? 'ya utilizado' : 'disponible para jugar'}).
-                  </div>
                 )}
 
                 {igFeedback && (
@@ -752,7 +828,9 @@ export const PromotionsSection: React.FC = () => {
                     className={`p-2.5 rounded-lg text-[11px] ${
                       igFeedback.type === 'error'
                         ? 'bg-red-950/40 border border-red-700/50 text-red-300'
-                        : 'bg-emerald-950/40 border border-emerald-700/50 text-emerald-300'
+                        : igFeedback.type === 'pending'
+                          ? 'bg-amber-950/40 border border-amber-700/50 text-amber-200'
+                          : 'bg-emerald-950/40 border border-emerald-700/50 text-emerald-300'
                     }`}
                   >
                     {igFeedback.message}
@@ -764,7 +842,7 @@ export const PromotionsSection: React.FC = () => {
               <div className="text-[11px] text-zinc-400 flex items-start gap-2 leading-relaxed pt-2 border-t border-white/5">
                 <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Control de intentos y verificación:</strong> Se permite un máximo de un intento adicional por participante entre ambas plataformas (Instagram y TikTok combinadas). Es imprescindible realizar una publicación real que cumpla las bases y etiquetar la cuenta oficial; el simple hecho de abrir el perfil o pulsar un enlace de compartir no constituye prueba de publicación. Dado que las plataformas no permiten verificar publicaciones de terceros sin credenciales de API comercial autorizadas, la solicitud queda registrada con tu @usuario para revisión manual por el restaurante.
+                  <strong>Control de intentos y ciclo de 7 días:</strong> Se permite 1 intento inicial gratuito y un máximo de 1 intento adicional cada 7 días entre Instagram y TikTok combinadas. Sin verificación automática de API oficial sobre publicaciones de terceros, las solicitudes quedan en estado pendiente de revisión manual por el restaurante antes de conceder el intento extra. Una vez consumidos ambos intentos, el ciclo se renueva automáticamente a los 7 días.
                 </span>
               </div>
             </div>

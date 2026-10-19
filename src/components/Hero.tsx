@@ -18,6 +18,16 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate, isActive = true }) => {
   const isActiveRef = useRef<boolean>(isActive);
   isActiveRef.current = isActive;
   const [isVideoEnded, setIsVideoEnded] = useState<boolean>(heroPlaybackMemory.hasCompleted);
+  const [pressedNav, setPressedNav] = useState<NavView | null>(null);
+  const navTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (navTimerRef.current !== null) {
+        window.clearTimeout(navTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleReplayVideo = () => {
     const video = videoRef.current;
@@ -34,6 +44,28 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate, isActive = true }) => {
     if (playPromise !== undefined) {
       playPromise.catch(() => {});
     }
+  };
+
+  // When the original video finishes, clicking or tapping directly on the video restarts it from the beginning
+  const handleVideoSurfaceTap = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (heroPlaybackMemory.hasCompleted || video.ended || isVideoEnded) {
+      handleReplayVideo();
+    }
+  };
+
+  const handleHeroNavClick = (view: NavView) => {
+    setPressedNav(view);
+    if (navTimerRef.current !== null) {
+      window.clearTimeout(navTimerRef.current);
+    }
+    navTimerRef.current = window.setTimeout(() => {
+      onNavigate(view);
+      window.setTimeout(() => {
+        setPressedNav((prev) => (prev === view ? null : prev));
+      }, 140);
+    }, 85);
   };
 
   useEffect(() => {
@@ -209,15 +241,22 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate, isActive = true }) => {
     }
   }, [isActive]);
 
+  const getHeroNavBtnClass = (view: NavView) => {
+    const isPressed = pressedNav === view;
+    return `${
+      isPressed ? 'embossed-btn-red text-white' : 'embossed-btn-dark text-red-500 hover:text-red-400 active:bg-red-600 active:text-white'
+    } inline-flex items-center justify-center py-3 sm:py-3.5 px-2 sm:px-4 text-xs sm:text-sm font-bold uppercase tracking-wider rounded-xl cursor-pointer text-center transition-colors duration-100`;
+  };
+
   return (
-    <section className="relative bg-transparent pt-0 pb-3 sm:pb-4">
+    <section className="relative bg-transparent pt-0 pb-2 sm:pb-3">
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
         {/* =================================================================== */}
         {/* 1. FIRST: THE PRESENTATION VIDEO AT THE VERY TOP                    */}
         {/* Blended naturally into the black background with no borders/frames  */}
-        {/* Plays once and preserves the final La Tentación Burger logo frame   */}
+        {/* Plays once; tapping directly on the finished video restarts it      */}
         {/* =================================================================== */}
-        <div className="w-full max-w-4xl mx-auto mb-3 sm:mb-4">
+        <div className="w-full max-w-4xl mx-auto mb-2.5 sm:mb-3">
           <div className="relative w-full aspect-video min-h-[200px] sm:min-h-[380px] bg-black overflow-hidden">
             <video
               ref={videoRef}
@@ -228,31 +267,15 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate, isActive = true }) => {
               controls={false}
               disablePictureInPicture
               preload="auto"
-              className="w-full h-full object-cover object-center bg-black block"
+              onClick={handleVideoSurfaceTap}
+              data-video-ended={isVideoEnded ? 'true' : 'false'}
+              className={`w-full h-full object-cover object-center bg-black block ${
+                isVideoEnded ? 'cursor-pointer' : ''
+              }`}
               aria-label="Vídeo oficial de presentación de La Tentación Burger"
             >
               <source src="/hero-burger.mp4" type="video/mp4" />
             </video>
-
-            {/* Small, discreet corner ▶ replay button visible ONLY after the video finishes */}
-            {isVideoEnded && (
-              <button
-                type="button"
-                onClick={handleReplayVideo}
-                aria-label="Reproducir de nuevo el vídeo de presentación"
-                data-testid="hero-video-replay-btn"
-                className="absolute bottom-2.5 right-2.5 sm:bottom-3.5 sm:right-3.5 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-black/75 hover:bg-black/95 border border-white/20 hover:border-red-500/70 text-zinc-200 hover:text-white transition-all cursor-pointer shadow-md"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  className="w-3.5 h-3.5 fill-current translate-x-[1px]"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                <span className="sr-only">▶</span>
-              </button>
-            )}
 
             {/* Smooth edge vignette transitions into the black website background */}
             <div
@@ -278,7 +301,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate, isActive = true }) => {
         {/* 2. BRAND PHRASE IMMEDIATELY BELOW VIDEO                             */}
         {/* Solid corporate red matching "BURGER" in the fixed top header       */}
         {/* =================================================================== */}
-        <div className="w-full max-w-3xl mx-auto mb-4 sm:mb-5">
+        <div className="w-full max-w-3xl mx-auto mb-3 sm:mb-3.5">
           <p className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight uppercase text-red-600 leading-snug">
             Caer en la tentación nunca fue un pecado
           </p>
@@ -286,29 +309,42 @@ export const Hero: React.FC<HeroProps> = ({ onNavigate, isActive = true }) => {
 
         {/* =================================================================== */}
         {/* 3. MAIN NAVIGATION BUTTONS: MENÚ | RESERVAS | DOMICILIO             */}
+        {/* Consistent red styling; flashes brand red when clicked              */}
         {/* =================================================================== */}
-        <div className="w-full max-w-md mx-auto mb-1">
+        <div className="w-full max-w-md mx-auto">
           <div className="grid grid-cols-3 gap-2 sm:gap-3.5">
             <button
-              onClick={() => onNavigate('menu')}
+              type="button"
+              onPointerDown={() => setPressedNav('menu')}
+              onClick={() => handleHeroNavClick('menu')}
               aria-label="Ir a la sección de Menú"
-              className="embossed-btn-red inline-flex items-center justify-center py-3 sm:py-3.5 px-2 sm:px-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-white rounded-xl cursor-pointer text-center"
+              data-testid="hero-nav-menu"
+              data-pressed={pressedNav === 'menu' ? 'true' : 'false'}
+              className={getHeroNavBtnClass('menu')}
             >
               MENÚ
             </button>
 
             <button
-              onClick={() => onNavigate('reservas')}
+              type="button"
+              onPointerDown={() => setPressedNav('reservas')}
+              onClick={() => handleHeroNavClick('reservas')}
               aria-label="Ir a la sección de Reservas"
-              className="embossed-btn-dark inline-flex items-center justify-center py-3 sm:py-3.5 px-2 sm:px-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-100 rounded-xl cursor-pointer text-center"
+              data-testid="hero-nav-reservas"
+              data-pressed={pressedNav === 'reservas' ? 'true' : 'false'}
+              className={getHeroNavBtnClass('reservas')}
             >
               RESERVAS
             </button>
 
             <button
-              onClick={() => onNavigate('delivery')}
+              type="button"
+              onPointerDown={() => setPressedNav('delivery')}
+              onClick={() => handleHeroNavClick('delivery')}
               aria-label="Ir a la sección de Domicilio"
-              className="embossed-btn-dark inline-flex items-center justify-center py-3 sm:py-3.5 px-2 sm:px-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-100 rounded-xl cursor-pointer text-center"
+              data-testid="hero-nav-delivery"
+              data-pressed={pressedNav === 'delivery' ? 'true' : 'false'}
+              className={getHeroNavBtnClass('delivery')}
             >
               DOMICILIO
             </button>

@@ -7,8 +7,11 @@ import dotenv from 'dotenv';
 import {
   type ChallengeAttemptState,
   createInitialAttemptState,
+  refreshChallengeCycle,
+  isCooldownActive,
   consumeAttempt,
-  grantInstagramExtraAttempt,
+  validateSocialSubmission,
+  requestSocialExtraAttempt,
   grantStaffExtraAttempt,
 } from './src/utils/stopwatchChallenge';
 
@@ -17,6 +20,7 @@ dotenv.config();
 const PORT = 3000;
 const STORE_PATH = path.resolve(process.cwd(), '.challenge-attempts.json');
 const STAFF_CODE = process.env.STAFF_CHALLENGE_CODE || 'TENTACION-LOCAL-2026';
+const inFlightSocialRequests = new Set<string>();
 
 interface StoredRecords {
   byToken: Record<string, ChallengeAttemptState>;
@@ -72,16 +76,26 @@ function resolveAttemptState(req: express.Request, clientToken?: string): {
   let state = store.byToken[resolvedToken];
   // If fingerprint already consumed an attempt under another token, merge stricter state
   if (existingTokenByFp && store.byToken[existingTokenByFp] && existingTokenByFp !== resolvedToken) {
-    const fpState = store.byToken[existingTokenByFp];
+    const fpState = refreshChallengeCycle(store.byToken[existingTokenByFp]);
     if (!state) {
       state = { ...fpState, deviceToken: resolvedToken };
     } else {
+      state = refreshChallengeCycle(state);
       state = {
         ...state,
         initialAttemptUsed: state.initialAttemptUsed || fpState.initialAttemptUsed,
         instagramExtraGranted: state.instagramExtraGranted || fpState.instagramExtraGranted,
         instagramExtraUsed: state.instagramExtraUsed || fpState.instagramExtraUsed,
         instagramHandle: state.instagramHandle || fpState.instagramHandle,
+        socialPlatform: state.socialPlatform || fpState.socialPlatform,
+        socialPostUrl: state.socialPostUrl || fpState.socialPostUrl,
+        socialVerificationStatus:
+          state.socialVerificationStatus === 'approved' || fpState.socialVerificationStatus === 'approved'
+            ? 'approved'
+            : state.socialVerificationStatus === 'pending_review' || fpState.socialVerificationStatus === 'pending_review'
+              ? 'pending_review'
+              : 'none',
+        cooldownUntil: state.cooldownUntil || fpState.cooldownUntil,
         staffExtraGrantedCount: Math.max(state.staffExtraGrantedCount, fpState.staffExtraGrantedCount),
         staffExtraUsedCount: Math.max(state.staffExtraUsedCount, fpState.staffExtraUsedCount),
       };
@@ -90,6 +104,8 @@ function resolveAttemptState(req: express.Request, clientToken?: string): {
 
   if (!state) {
     state = createInitialAttemptState(resolvedToken);
+  } else {
+    state = refreshChallengeCycle(state);
   }
 
   store.byToken[resolvedToken] = state;
@@ -97,6 +113,56 @@ function resolveAttemptState(req: express.Request, clientToken?: string): {
   saveStore(store);
 
   return { store, token: resolvedToken, fingerprint, state };
+}
+
+/**
+ * Checks account existence and public post mention where technically possible.
+ * Never fabricates verification: only returns `autoVerified: true` if an official API
+ * or publicly readable post metadata explicitly confirms the post and restaurant tag.
+ */
+async function checkSocialAccountAndPost(
+  profileUrl: string,
+  postUrl: string | undefined,
+  platform: 'instagram' | 'tiktok'
+): Promise<{ accountNotFound: boolean; autoVerified: boolean }> {
+  const targetMention = platform === 'tiktok' ? 'latentacionburger_' : 'latentacion.burger';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const urlToCheck = postUrl || profileUrl;
+    const res = await fetch(urlToCheck, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; LaTentacionBurgerVerifier/1.0)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+    });
+
+    if (res.status === 404) {
+      return { accountNotFound: true, autoVerified: false };
+    }
+
+    // Only if a specific post URL was provided and publicly exposes metadata with the tag
+    if (postUrl && res.ok) {
+      const html = (await res.text()).slice(0, 120_000).toLowerCase();
+      const hasOfficialApiToken = Boolean(
+        platform === 'instagram'
+          ? process.env.INSTAGRAM_GRAPH_API_TOKEN
+          : process.env.TIKTOK_RESEARCH_API_TOKEN
+      );
+      if (hasOfficialApiToken && html.includes(targetMention)) {
+        return { accountNotFound: false, autoVerified: true };
+      }
+    }
+    return { accountNotFound: false, autoVerified: false };
+  } catch {
+    // Network/platform block: fall back to pending manual restaurant review
+    return { accountNotFound: false, autoVerified: false };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function startServer() {
@@ -125,44 +191,89 @@ async function startServer() {
     res.json({ state: updated });
   });
 
-  // 3. Register manual Instagram/TikTok share handle for 1 remote extra attempt
-  app.post('/api/challenge/instagram-extra', (req, res) => {
-    const { token, instagramHandle, platform } = req.body || {};
+  // 3. Register Instagram/TikTok verification request (max 1 extra attempt per 7-day cycle across both platforms)
+  app.post('/api/challenge/instagram-extra', async (req, res) => {
+    const { token, instagramHandle, postUrl, platform } = req.body || {};
     const { store, token: resolvedToken, fingerprint, state } = resolveAttemptState(req, token);
-    const validPlatform = platform === 'tiktok' ? 'tiktok' : 'instagram';
+    const lockKey = `${resolvedToken}::${fingerprint}`;
 
-    const rawHandle = typeof instagramHandle === 'string' ? instagramHandle.trim() : '';
-    const normalizedHandle = rawHandle ? (rawHandle.startsWith('@') ? rawHandle.toLowerCase() : `@${rawHandle.toLowerCase()}`) : '';
-    const handleAlreadyUsed =
-      normalizedHandle !== '' &&
-      Object.values(store.byToken).some(
-        (rec) => rec.deviceToken !== resolvedToken && rec.instagramHandle?.toLowerCase() === normalizedHandle
-      );
-
-    if (handleAlreadyUsed) {
-      res.status(400).json({
-        error: 'Este @usuario ya ha sido utilizado para solicitar el intento extra.',
+    if (inFlightSocialRequests.has(lockKey)) {
+      res.status(429).json({
+        error: 'Ya hay una solicitud de verificación en curso. Espera unos segundos.',
         state,
       });
       return;
     }
 
-    const result = grantInstagramExtraAttempt(
-      state,
-      typeof instagramHandle === 'string' ? instagramHandle : '',
-      validPlatform
-    );
-    if (!result.ok) {
-      res.status(400).json({ error: result.error, state: result.state });
-      return;
+    inFlightSocialRequests.add(lockKey);
+    try {
+      const validPlatform = platform === 'tiktok' ? 'tiktok' : 'instagram';
+      const rawInput = typeof instagramHandle === 'string' ? instagramHandle : '';
+      const rawPostUrl = typeof postUrl === 'string' ? postUrl : undefined;
+
+      const validation = validateSocialSubmission(rawInput, validPlatform, rawPostUrl);
+      if (!validation.ok) {
+        res.status(400).json({ error: validation.error, state });
+        return;
+      }
+
+      const normalizedHandle = validation.data.handle.toLowerCase();
+      const handleAlreadyUsed = Object.values(store.byToken).some((rec) => {
+        if (rec.deviceToken === resolvedToken) return false;
+        const refreshedRec = refreshChallengeCycle(rec);
+        const recActive =
+          refreshedRec.instagramExtraGranted ||
+          refreshedRec.socialVerificationStatus === 'pending_review' ||
+          refreshedRec.socialVerificationStatus === 'approved' ||
+          isCooldownActive(refreshedRec);
+        return recActive && refreshedRec.instagramHandle?.toLowerCase() === normalizedHandle;
+      });
+
+      if (handleAlreadyUsed) {
+        res.status(400).json({
+          error: 'Esta cuenta ya ha sido utilizada para solicitar el intento extra en el ciclo actual.',
+          state,
+        });
+        return;
+      }
+
+      const probe = await checkSocialAccountAndPost(
+        validation.data.profileUrl,
+        validation.data.postUrl,
+        validPlatform
+      );
+
+      if (probe.accountNotFound) {
+        res.status(400).json({
+          error: 'No se ha podido encontrar la cuenta o publicación pública indicada (404). Verifica tu @usuario o enlace.',
+          state,
+        });
+        return;
+      }
+
+      const result = requestSocialExtraAttempt(state, rawInput, validPlatform, {
+        postUrl: rawPostUrl,
+        autoVerified: probe.autoVerified,
+      });
+
+      if (!result.ok) {
+        res.status(400).json({ error: result.error, state: result.state });
+        return;
+      }
+
+      store.byToken[resolvedToken] = result.state;
+      store.byFingerprint[fingerprint] = resolvedToken;
+      saveStore(store);
+      res.json({
+        state: result.state,
+        verificationStatus: result.status,
+      });
+    } finally {
+      inFlightSocialRequests.delete(lockKey);
     }
-    store.byToken[resolvedToken] = result.state;
-    store.byFingerprint[fingerprint] = resolvedToken;
-    saveStore(store);
-    res.json({ state: result.state });
   });
 
-  // 4. Staff-authorized in-store private activation
+  // 4. Staff-authorized approval of pending social review or in-store extra attempt
   app.post('/api/challenge/staff-unlock', (req, res) => {
     const { token, staffCode } = req.body || {};
     if (typeof staffCode !== 'string' || staffCode.trim() !== STAFF_CODE) {

@@ -258,6 +258,7 @@ export const App: React.FC = () => {
               onCustomize={handleOpenCustomize}
               onQuickAdd={handleQuickAdd}
               onDecrementItem={handleDecrementMenuItem}
+              onNavigateToDelivery={() => handleNavigate('delivery')}
             />
           </div>
 

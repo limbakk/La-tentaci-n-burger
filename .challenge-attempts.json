@@ -2,12 +2,18 @@
   "byToken": {
     "de9c41e7-f277-4897-b4e2-81c27d9b8413": {
       "deviceToken": "de9c41e7-f277-4897-b4e2-81c27d9b8413",
-      "initialAttemptUsed": false,
+      "initialAttemptUsed": true,
       "instagramExtraGranted": false,
       "instagramExtraUsed": false,
       "staffExtraGrantedCount": 0,
       "staffExtraUsedCount": 0,
-      "updatedAt": "2026-10-19T09:29:09.017Z"
+      "updatedAt": "2026-10-19T13:27:11.568Z",
+      "lastMeasuredSeconds": 1.72,
+      "lastIsWon": false,
+      "instagramHandle": "@burger_fan_sevilla_99",
+      "socialPlatform": "instagram",
+      "socialVerificationStatus": "pending_review",
+      "socialRequestedAt": "2026-10-19T13:27:11.568Z"
     },
     "a9cbef90-900a-4003-9fdb-96ad0113b7b2": {
       "deviceToken": "a9cbef90-900a-4003-9fdb-96ad0113b7b2",

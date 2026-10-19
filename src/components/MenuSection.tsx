@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Bike } from 'lucide-react';
 import type { MenuCategoryKey, MenuItem, CartItem } from '../types/restaurant';
 import { MENU_CATEGORIES, MENU_ITEMS } from '../data/menu';
 import { RESTAURANT_INFO } from '../data/restaurantInfo';
@@ -10,6 +10,7 @@ interface MenuSectionProps {
   onCustomize: (item: MenuItem) => void;
   onQuickAdd: (item: MenuItem) => void;
   onDecrementItem?: (item: MenuItem) => void;
+  onNavigateToDelivery?: () => void;
 }
 
 export const MenuSection: React.FC<MenuSectionProps> = ({
@@ -17,6 +18,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
   onCustomize,
   onQuickAdd,
   onDecrementItem,
+  onNavigateToDelivery,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<MenuCategoryKey | 'todos'>('todos');
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +78,14 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
     'Hola, quiero hacer un pedido para recoger en el local'
   )}`;
 
+  const handleDeliveryShortcut = () => {
+    if (onNavigateToDelivery) {
+      onNavigateToDelivery();
+    } else if (typeof window !== 'undefined') {
+      window.location.hash = '#pedidos-a-domicilio';
+    }
+  };
+
   return (
     <section id="carta" className="pt-8 pb-14 sm:pt-10 sm:pb-20 bg-transparent relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -90,18 +100,27 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                 <span className="font-display text-base sm:text-lg font-bold uppercase tracking-wide text-white">
                   ¡Pide online y recoge en el local!
                 </span>
-                <span className="text-[11px] font-mono text-zinc-400">
-                  Recogida en el local
-                </span>
               </div>
-              <a
-                href={pickupWhatsAppUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="embossed-btn-red px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-white cursor-pointer shrink-0"
-              >
-                PEDIR PARA RECOGER
-              </a>
+              <div className="flex items-center justify-center gap-2 shrink-0">
+                <a
+                  href={pickupWhatsAppUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="embossed-btn-red px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-white cursor-pointer shrink-0 inline-flex items-center justify-center"
+                >
+                  PEDIR PARA RECOGER
+                </a>
+                <button
+                  type="button"
+                  onClick={handleDeliveryShortcut}
+                  aria-label="Ir a pedidos a domicilio"
+                  title="Pedidos a domicilio (Uber Eats, Glovo y Just Eat)"
+                  data-testid="menu-delivery-shortcut-btn"
+                  className="inline-flex items-center justify-center px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-black font-bold text-xs shadow-md border border-amber-300/80 transition-all cursor-pointer shrink-0"
+                >
+                  <Bike className="w-4 h-4 stroke-[2.25]" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           )}
         </div>

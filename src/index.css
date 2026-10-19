@@ -1,0 +1,656 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Bebas Neue', 'Oswald', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Oswald', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-script: 'Caveat', cursive;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --color-brand-red: #ef233c;
+  --color-brand-red-hover: #d90429;
+  --color-brand-dark: #000000;
+  --color-brand-surface: #0a0a0d;
+  --color-brand-surface-raised: #14141a;
+  --color-brand-border: #22222d;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #000000;
+  color: #f4f4f5;
+  overflow-x: hidden;
+}
+
+.font-script {
+  font-family: var(--font-script);
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+}
+
+/* Futuristic 3D Embossed & Tactile Styling — dark surfaces with depth and NO external red borders */
+.embossed-card {
+  background: linear-gradient(180deg, #181824 0%, #101017 55%, #0a0a0f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-top-color: rgba(255, 255, 255, 0.09);
+  border-bottom-color: rgba(0, 0, 0, 0.8);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.75),
+    0 14px 36px -8px rgba(0, 0, 0, 0.9);
+  position: relative;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.embossed-card:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-top-color: rgba(255, 255, 255, 0.13);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.8),
+    0 18px 42px -10px rgba(0, 0, 0, 0.95);
+}
+
+/* Lightweight one-time viewport entrance transition (never hides cards permanently) */
+.viewport-card-pending {
+  opacity: 0.01;
+  transform: translateY(10px);
+  transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.viewport-card-entered {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* =================================================================== */
+/* TINY BASELINE FIRE & OCCASIONAL BROAD SPREADING FLAME BURSTS        */
+/* =================================================================== */
+
+@keyframes baseline-hearth-breathe {
+  0%, 100% {
+    opacity: 0.14;
+    transform: scaleY(0.88) scaleX(0.96);
+  }
+  50% {
+    opacity: 0.24;
+    transform: scaleY(1.06) scaleX(1.03);
+  }
+}
+
+@keyframes baseline-tongue-ripple {
+  0%, 100% {
+    transform: translateX(0px) scaleY(0.86);
+    opacity: 0.58;
+  }
+  50% {
+    transform: translateX(-6px) scaleY(1.1);
+    opacity: 0.85;
+  }
+}
+
+.baseline-hearth-glow {
+  position: absolute;
+  bottom: -18px;
+  height: 54px;
+  border-radius: 50% 50% 0 0;
+  background: radial-gradient(
+    ellipse at 50% 100%,
+    rgba(220, 38, 38, 0.28) 0%,
+    rgba(234, 88, 12, 0.14) 52%,
+    transparent 100%
+  );
+  filter: blur(14px);
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  animation: baseline-hearth-breathe 9s ease-in-out infinite;
+}
+
+.baseline-hearth-glow--left {
+  left: 6%;
+  width: 28%;
+  animation-delay: 0.4s;
+}
+
+.baseline-hearth-glow--center {
+  left: 34%;
+  width: 32%;
+  animation-duration: 11s;
+  animation-delay: 2.1s;
+}
+
+.baseline-hearth-glow--right {
+  right: 6%;
+  width: 28%;
+  animation-duration: 10s;
+  animation-delay: 4.3s;
+}
+
+.baseline-flame-strip {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  width: 100%;
+  height: 36px;
+  filter: blur(2.5px);
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.baseline-flame-wave {
+  transform-origin: 50% 100%;
+  animation: baseline-tongue-ripple 3.6s ease-in-out infinite;
+}
+
+.baseline-flame-wave--alt {
+  animation-duration: 2.9s;
+  animation-direction: reverse;
+}
+
+/* Soft, brief warm illumination around an occasional major burst */
+@keyframes burst-warm-glow-fade {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 18%, 0) scale(0.75);
+  }
+  26% {
+    opacity: var(--burst-glow-opacity, 0.24);
+    transform: translate3d(-50%, 0%, 0) scale(1.04);
+  }
+  58% {
+    opacity: calc(var(--burst-glow-opacity, 0.24) * 0.82);
+    transform: translate3d(-50%, -4%, 0) scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, -8%, 0) scale(0.92);
+  }
+}
+
+.burst-warm-illumination {
+  position: absolute;
+  bottom: -40px;
+  width: 560px;
+  height: 440px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 85%,
+    rgba(239, 68, 68, 0.34) 0%,
+    rgba(249, 115, 22, 0.18) 42%,
+    rgba(251, 146, 60, 0.06) 70%,
+    transparent 100%
+  );
+  filter: blur(34px);
+  pointer-events: none;
+  opacity: 0;
+  animation-name: burst-warm-glow-fade;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+}
+
+/* Broad, spreading multi-tongue organic flame burst rising from the bottom */
+@keyframes organic-flame-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 30%, 0) scaleX(calc(var(--flame-flip, 1) * 0.58)) scaleY(0.18) rotate(0deg);
+  }
+  22% {
+    opacity: var(--flame-peak-opacity, 0.46);
+    transform: translate3d(-50%, 4%, 0) scaleX(calc(var(--flame-flip, 1) * 0.96)) scaleY(0.88) rotate(calc(var(--flame-sway, 2deg) * -0.4));
+  }
+  52% {
+    opacity: calc(var(--flame-peak-opacity, 0.46) * 0.92);
+    transform: translate3d(-50%, -3%, 0) scaleX(calc(var(--flame-flip, 1) * 1.12)) scaleY(1.06) rotate(var(--flame-sway, 2deg));
+  }
+  78% {
+    opacity: calc(var(--flame-peak-opacity, 0.46) * 0.38);
+    transform: translate3d(-50%, -10%, 0) scaleX(calc(var(--flame-flip, 1) * 1.18)) scaleY(0.95) rotate(calc(var(--flame-sway, 2deg) * -0.35));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, -16%, 0) scaleX(calc(var(--flame-flip, 1) * 0.85)) scaleY(0.45) rotate(0deg);
+  }
+}
+
+@keyframes tongue-flicker-wave {
+  0%, 100% {
+    transform: skewX(0deg) scaleX(1);
+  }
+  33% {
+    transform: skewX(4deg) scaleX(0.95);
+  }
+  66% {
+    transform: skewX(-4.5deg) scaleX(1.06);
+  }
+}
+
+@keyframes wing-spread-sway {
+  0%, 100% {
+    transform: rotate(0deg) scaleX(0.96);
+  }
+  50% {
+    transform: rotate(-3.5deg) scaleX(1.08);
+  }
+}
+
+@keyframes wisp-lick-dance {
+  0%, 100% {
+    opacity: 0.28;
+    transform: translateY(6px) scaleY(0.82);
+  }
+  50% {
+    opacity: 0.78;
+    transform: translateY(-12px) scaleY(1.16);
+  }
+}
+
+.organic-flame-plume {
+  position: absolute;
+  bottom: -18px;
+  transform-origin: 50% 100%;
+  filter: blur(4.5px) drop-shadow(0 0 22px rgba(239, 68, 68, 0.3));
+  pointer-events: none;
+  opacity: 0;
+  animation-name: organic-flame-rise;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+}
+
+.organic-flame-tongue-outer {
+  transform-origin: 50% 100%;
+  animation: tongue-flicker-wave 1.15s ease-in-out infinite;
+}
+
+.organic-flame-wing-left {
+  transform-origin: 35% 100%;
+  animation: wing-spread-sway 1.3s ease-in-out infinite;
+}
+
+.organic-flame-wing-right {
+  transform-origin: 65% 100%;
+  animation: wing-spread-sway 1.25s ease-in-out infinite reverse;
+}
+
+.organic-flame-tongue-mid {
+  transform-origin: 50% 100%;
+  animation: tongue-flicker-wave 0.9s ease-in-out infinite reverse;
+}
+
+.organic-flame-tongue-core {
+  transform-origin: 50% 100%;
+  animation: tongue-flicker-wave 0.72s ease-in-out infinite;
+}
+
+.organic-flame-tongue-heart {
+  transform-origin: 50% 100%;
+  animation: tongue-flicker-wave 0.58s ease-in-out infinite reverse;
+}
+
+.organic-flame-wisp {
+  transform-origin: 50% 100%;
+  animation: wisp-lick-dance 0.95s ease-in-out infinite;
+}
+
+.organic-flame-wisp--delayed {
+  animation-delay: 0.35s;
+}
+
+/* Multi-trajectory glowing embers rising from the bottom fire area */
+@keyframes ember-rise-low {
+  0%, 100% {
+    opacity: 0;
+    transform: translate3d(0px, 10px, 0) scale(0.8);
+  }
+  16% {
+    opacity: 0.72;
+    transform: translate3d(calc(var(--ember-drift-x, 12px) * 0.4), -45px, 0) scale(1);
+  }
+  58% {
+    opacity: 0.42;
+    transform: translate3d(var(--ember-drift-x, 12px), -165px, 0) scale(0.78);
+  }
+  96% {
+    opacity: 0;
+    transform: translate3d(calc(var(--ember-drift-x, 12px) * 0.6), -280px, 0) scale(0.4);
+  }
+}
+
+@keyframes ember-rise-mid {
+  0%, 100% {
+    opacity: 0;
+    transform: translate3d(0px, 12px, 0) scale(0.85);
+  }
+  15% {
+    opacity: 0.78;
+    transform: translate3d(calc(var(--ember-drift-x, -16px) * -0.35), -80px, 0) scale(1.04);
+  }
+  52% {
+    opacity: 0.48;
+    transform: translate3d(var(--ember-drift-x, -16px), -310px, 0) scale(0.82);
+  }
+  84% {
+    opacity: 0.2;
+    transform: translate3d(calc(var(--ember-drift-x, -16px) * 0.5), -490px, 0) scale(0.56);
+  }
+  98% {
+    opacity: 0;
+    transform: translate3d(0px, -610px, 0) scale(0.35);
+  }
+}
+
+@keyframes ember-rise-high {
+  0%, 100% {
+    opacity: 0;
+    transform: translate3d(0px, 16px, 0) scale(0.9);
+  }
+  14% {
+    opacity: 0.82;
+    transform: translate3d(calc(var(--ember-drift-x, 22px) * 0.3), -120px, 0) scale(1.06);
+  }
+  46% {
+    opacity: 0.54;
+    transform: translate3d(var(--ember-drift-x, 22px), -480px, 0) scale(0.86);
+  }
+  78% {
+    opacity: 0.26;
+    transform: translate3d(calc(var(--ember-drift-x, 22px) * -0.4), -840px, 0) scale(0.6);
+  }
+  98% {
+    opacity: 0;
+    transform: translate3d(calc(var(--ember-drift-x, 22px) * 0.2), -1140px, 0) scale(0.34);
+  }
+}
+
+.ember-spark-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fef08a 0%, #fb923c 45%, #ef4444 82%, transparent 100%);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.ember-spark--xs {
+  width: 2.5px;
+  height: 2.5px;
+  box-shadow: 0 0 5px 1px rgba(239, 68, 68, 0.55);
+}
+
+.ember-spark--sm {
+  width: 3.5px;
+  height: 3.5px;
+  box-shadow: 0 0 7px 1px rgba(251, 146, 60, 0.65);
+}
+
+.ember-spark--md {
+  width: 4.5px;
+  height: 4.5px;
+  box-shadow: 0 0 9px 1.5px rgba(251, 146, 60, 0.75);
+}
+
+.ember-spark--low {
+  animation-name: ember-rise-low;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+.ember-spark--mid {
+  animation-name: ember-rise-mid;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+.ember-spark--high {
+  animation-name: ember-rise-high;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewport-card-pending,
+  .viewport-card-entered {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .baseline-hearth-glow,
+  .baseline-flame-strip,
+  .baseline-flame-wave,
+  .burst-warm-illumination,
+  .organic-flame-plume,
+  .organic-flame-tongue-outer,
+  .organic-flame-wing-left,
+  .organic-flame-wing-right,
+  .organic-flame-tongue-mid,
+  .organic-flame-tongue-core,
+  .organic-flame-tongue-heart,
+  .organic-flame-wisp,
+  .ember-spark-particle,
+  .card-selected-flame-glow,
+  .card-selected-flame-wave,
+  .card-selected-ember {
+    animation: none !important;
+    opacity: 0 !important;
+    transform: none !important;
+  }
+}
+
+/* Subtle internal bottom flame & ember effect inside selected dish cards */
+@keyframes card-flame-breathe {
+  0%, 100% {
+    opacity: 0.24;
+    transform: scaleY(0.88);
+  }
+  50% {
+    opacity: 0.44;
+    transform: scaleY(1.08);
+  }
+}
+
+@keyframes card-flame-wave-sway {
+  0%, 100% {
+    transform: translateX(0px) scaleY(0.92);
+  }
+  50% {
+    transform: translateX(-4px) scaleY(1.06);
+  }
+}
+
+@keyframes card-ember-float {
+  0%, 100% {
+    opacity: 0;
+    transform: translateY(4px) translateX(0px) scale(0.75);
+  }
+  25% {
+    opacity: 0.68;
+    transform: translateY(-14px) translateX(3px) scale(0.95);
+  }
+  75% {
+    opacity: 0.28;
+    transform: translateY(-38px) translateX(-3px) scale(0.65);
+  }
+  98% {
+    opacity: 0;
+    transform: translateY(-48px) translateX(1px) scale(0.45);
+  }
+}
+
+.card-selected-flame-glow {
+  position: absolute;
+  inset-inline: 8%;
+  bottom: -14px;
+  height: 44px;
+  background: radial-gradient(
+    ellipse at 50% 100%,
+    rgba(220, 38, 38, 0.36) 0%,
+    rgba(234, 88, 12, 0.16) 55%,
+    transparent 100%
+  );
+  filter: blur(10px);
+  transform-origin: 50% 100%;
+  animation: card-flame-breathe 3.8s ease-in-out infinite;
+}
+
+.card-selected-flame-wave {
+  transform-origin: 50% 100%;
+  animation: card-flame-wave-sway 2.8s ease-in-out infinite;
+}
+
+.card-selected-flame-wave--inner {
+  animation-duration: 2.1s;
+  animation-direction: reverse;
+}
+
+.card-selected-ember {
+  position: absolute;
+  width: 2.5px;
+  height: 2.5px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fef08a 0%, #fb923c 55%, #ef4444 100%);
+  box-shadow: 0 0 5px 1px rgba(239, 68, 68, 0.45);
+  opacity: 0;
+  animation: card-ember-float 5.2s ease-out infinite;
+}
+
+.card-selected-ember--delayed {
+  animation-duration: 6.4s;
+  animation-delay: 1.7s;
+}
+
+.card-selected-ember--slow {
+  animation-duration: 7.1s;
+  animation-delay: 3.1s;
+}
+
+.embossed-card-inner {
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+}
+
+.embossed-btn-red {
+  background: linear-gradient(180deg, #ff2e43 0%, #e50914 45%, #b5050f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-top-color: rgba(255, 255, 255, 0.45);
+  border-bottom-color: rgba(0, 0, 0, 0.7);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.45),
+    0 4px 14px 0 rgba(229, 9, 20, 0.45),
+    0 2px 4px 0 rgba(0, 0, 0, 0.6);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.embossed-btn-red:hover {
+  background: linear-gradient(180deg, #ff475b 0%, #f0131f 45%, #c80612 100%);
+  border-top-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.45),
+    0 8px 24px 0 rgba(229, 9, 20, 0.6),
+    0 3px 6px 0 rgba(0, 0, 0, 0.7);
+  transform: translateY(-1.5px);
+}
+
+.embossed-btn-red:active {
+  background: linear-gradient(180deg, #a5040d 0%, #c40611 100%);
+  box-shadow: 
+    inset 0 2px 6px 0 rgba(0, 0, 0, 0.7),
+    0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  transform: translateY(1px);
+}
+
+.embossed-btn-dark {
+  background: linear-gradient(180deg, #222232 0%, #151522 50%, #0d0d17 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.25);
+  border-bottom-color: rgba(0, 0, 0, 0.8);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.55),
+    0 4px 14px 0 rgba(0, 0, 0, 0.6),
+    0 2px 4px 0 rgba(0, 0, 0, 0.7);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.embossed-btn-dark:hover {
+  background: linear-gradient(180deg, #2b2b3f 0%, #1c1c2c 50%, #131320 100%);
+  border-color: rgba(255, 255, 255, 0.22);
+  border-top-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.55),
+    0 8px 20px 0 rgba(0, 0, 0, 0.7);
+  transform: translateY(-1.5px);
+}
+
+.embossed-btn-dark:active {
+  background: linear-gradient(180deg, #0c0c14 0%, #14141e 100%);
+  box-shadow: 
+    inset 0 2px 6px 0 rgba(0, 0, 0, 0.75),
+    0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  transform: translateY(1px);
+}
+
+.embossed-text-3d {
+  text-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.9),
+    0 6px 14px rgba(0, 0, 0, 0.95);
+}
+
+.embossed-text-red-3d {
+  text-shadow: none;
+}
+
+.embossed-badge {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Subtle shadow styling across site (without external red borders) */
+.red-glow-subtle {
+  box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.85);
+}
+
+.red-glow-card {
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.85);
+}
+
+.red-glow-interactive {
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.6);
+}
+
+.red-glow-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.8);
+}
+
+.red-glow-heading {
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0e0e12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a36;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3e3e50;
+}

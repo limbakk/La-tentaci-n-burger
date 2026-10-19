@@ -1,0 +1,6 @@
+{
+  "name": "La Tentación Burger",
+  "description": "Sitio web oficial y carta digital de La Tentación Burger en Sevilla (Grupo San Diego, Fase 7). Demo privada desarrollada por La Casa de los Inventos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

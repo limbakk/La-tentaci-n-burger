@@ -1,0 +1,41 @@
+{
+  "byToken": {
+    "de9c41e7-f277-4897-b4e2-81c27d9b8413": {
+      "deviceToken": "de9c41e7-f277-4897-b4e2-81c27d9b8413",
+      "initialAttemptUsed": false,
+      "instagramExtraGranted": false,
+      "instagramExtraUsed": false,
+      "staffExtraGrantedCount": 0,
+      "staffExtraUsedCount": 0,
+      "updatedAt": "2026-10-19T09:29:09.017Z"
+    },
+    "a9cbef90-900a-4003-9fdb-96ad0113b7b2": {
+      "deviceToken": "a9cbef90-900a-4003-9fdb-96ad0113b7b2",
+      "initialAttemptUsed": true,
+      "instagramExtraGranted": true,
+      "instagramExtraUsed": true,
+      "staffExtraGrantedCount": 0,
+      "staffExtraUsedCount": 0,
+      "updatedAt": "2026-10-19T10:23:47.632Z",
+      "lastMeasuredSeconds": 10.04,
+      "lastIsWon": false,
+      "instagramHandle": "@estoyalso",
+      "socialPlatform": "instagram"
+    },
+    "a4aea8c0-7b33-4b53-955d-c2d21270c85e": {
+      "deviceToken": "a4aea8c0-7b33-4b53-955d-c2d21270c85e",
+      "initialAttemptUsed": false,
+      "instagramExtraGranted": false,
+      "instagramExtraUsed": false,
+      "staffExtraGrantedCount": 0,
+      "staffExtraUsedCount": 0,
+      "updatedAt": "2026-10-19T09:42:51.148Z"
+    }
+  },
+  "byFingerprint": {
+    "c04ecb95a73d494f73ecab1ab486fe97": "de9c41e7-f277-4897-b4e2-81c27d9b8413",
+    "e7ee37cc1ee6035211d09090dd6b51be": "a9cbef90-900a-4003-9fdb-96ad0113b7b2",
+    "caa4f2f604af9d7e17a0f19ca7349c8c": "a4aea8c0-7b33-4b53-955d-c2d21270c85e",
+    "0cdb2e23a5868687c4551baaf7abff6a": "a9cbef90-900a-4003-9fdb-96ad0113b7b2"
+  }
+}
